@@ -7,6 +7,7 @@ import { McpServerEditor } from "./editors/McpServerEditor";
 import { SettingsEditor } from "./editors/SettingsEditor";
 import { ClaudeMdEditor } from "./editors/ClaudeMdEditor";
 import { MemoryEditor } from "./editors/MemoryEditor";
+import { ConnectionsView } from "./connections/ConnectionsView";
 
 const App: React.FC = () => {
   const rootEl = document.getElementById("root");
@@ -21,6 +22,7 @@ const App: React.FC = () => {
     case "settings": return <SettingsEditor />;
     case "claudeMd": return <ClaudeMdEditor />;
     case "memory": return <MemoryEditor />;
+    case "connections": return <ConnectionsView />;
     default:
       return <div style={{ padding: "16px" }}>Unknown editor type: {editorType}</div>;
   }
