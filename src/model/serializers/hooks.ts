@@ -46,7 +46,17 @@ export class HooksSerializer {
     if (hook.timeout) entry.timeout = hook.timeout;
     if (!hook.enabled) entry.enabled = false;
 
-    raw.hooks[hook.event].push(entry);
+    // Upsert: if the hook ID contains an index that points to an existing
+    // entry in the same event array, replace it in place. Otherwise append.
+    const parts = hook.id.split(":");
+    const index = parseInt(parts[parts.length - 1], 10);
+    const eventArray: any[] = raw.hooks[hook.event];
+
+    if (!isNaN(index) && index >= 0 && index < eventArray.length) {
+      eventArray[index] = entry;
+    } else {
+      eventArray.push(entry);
+    }
 
     const dir = path.dirname(hook.filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -59,11 +69,19 @@ export class HooksSerializer {
     const raw = JSON.parse(fs.readFileSync(hook.filePath, "utf-8"));
     if (!raw.hooks?.[hook.event]) return;
 
-    const parts = hook.id.split(":");
-    const index = parseInt(parts[parts.length - 1], 10);
-    raw.hooks[hook.event].splice(index, 1);
+    // Match by content (command + matcher) instead of index, so removal is
+    // stable regardless of prior add/remove mutations.
+    const entries: any[] = raw.hooks[hook.event];
+    const idx = entries.findIndex(
+      (e: any) =>
+        e.command === hook.command &&
+        (e.matcher ?? undefined) === (hook.matcher ?? undefined),
+    );
+    if (idx !== -1) {
+      entries.splice(idx, 1);
+    }
 
-    if (raw.hooks[hook.event].length === 0) delete raw.hooks[hook.event];
+    if (entries.length === 0) delete raw.hooks[hook.event];
     if (Object.keys(raw.hooks).length === 0) delete raw.hooks;
 
     fs.writeFileSync(hook.filePath, JSON.stringify(raw, null, 2) + "\n");
