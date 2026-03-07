@@ -1,25 +1,37 @@
 import * as fs from "fs";
 import * as path from "path";
-import { parse, stringify } from "yaml";
 import { AgentConfig, Scope } from "../types";
+import { findMdFilesRecursive } from "./utils";
 
-interface AgentYaml {
-  name?: string;
-  model?: string;
-  instructions?: string;
-  permissions?: string[];
-  skills?: string[];
-  hooks?: string[];
-  mcpServers?: string[];
-  claudeMdFiles?: string[];
+function parseFrontmatter(raw: string): { frontmatter: Record<string, string>; content: string } {
+  const frontmatter: Record<string, string> = {};
+  let content = raw;
+
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (fmMatch) {
+    const fmLines = fmMatch[1].split("\n");
+    for (const line of fmLines) {
+      const colonIdx = line.indexOf(":");
+      if (colonIdx > 0) {
+        const key = line.slice(0, colonIdx).trim();
+        const value = line.slice(colonIdx + 1).trim();
+        frontmatter[key] = value;
+      }
+    }
+    content = fmMatch[2].trim();
+  }
+
+  return { frontmatter, content };
 }
 
 export class AgentsSerializer {
   static read(filePath: string, scope: Scope): AgentConfig {
     const raw = fs.readFileSync(filePath, "utf-8");
-    const parsed: AgentYaml = parse(raw) ?? {};
-    const fileName = path.basename(filePath, ".yml");
-    const name = parsed.name || fileName;
+    const ext = path.extname(filePath);
+    const fileName = path.basename(filePath, ext);
+
+    const { frontmatter, content } = parseFrontmatter(raw);
+    const name = frontmatter.name || fileName;
 
     return {
       id: `${scope.type}:${scope.label}:agent:${name}`,
@@ -27,13 +39,10 @@ export class AgentsSerializer {
       type: "agent",
       scope,
       filePath,
-      model: parsed.model,
-      instructions: parsed.instructions,
-      permissions: parsed.permissions,
-      skills: parsed.skills,
-      hooks: parsed.hooks,
-      mcpServers: parsed.mcpServers,
-      claudeMdFiles: parsed.claudeMdFiles,
+      model: frontmatter.model,
+      description: frontmatter.description,
+      color: frontmatter.color,
+      instructions: content || undefined,
     };
   }
 
@@ -41,26 +50,24 @@ export class AgentsSerializer {
     const agentsDir = path.join(claudeDir, "agents");
     if (!fs.existsSync(agentsDir)) return [];
 
-    return fs
-      .readdirSync(agentsDir)
-      .filter((f) => f.endsWith(".yml"))
-      .map((f) => AgentsSerializer.read(path.join(agentsDir, f), scope));
+    return findMdFilesRecursive(agentsDir).map((f) =>
+      AgentsSerializer.read(f, scope),
+    );
   }
 
   static write(agent: AgentConfig): void {
-    const data: AgentYaml = { name: agent.name };
-
-    if (agent.model) data.model = agent.model;
-    if (agent.instructions) data.instructions = agent.instructions;
-    if (agent.permissions) data.permissions = agent.permissions;
-    if (agent.skills) data.skills = agent.skills;
-    if (agent.hooks) data.hooks = agent.hooks;
-    if (agent.mcpServers) data.mcpServers = agent.mcpServers;
-    if (agent.claudeMdFiles) data.claudeMdFiles = agent.claudeMdFiles;
+    const lines: string[] = ["---"];
+    lines.push(`name: ${agent.name}`);
+    if (agent.description) lines.push(`description: ${agent.description}`);
+    if (agent.model) lines.push(`model: ${agent.model}`);
+    if (agent.color) lines.push(`color: ${agent.color}`);
+    lines.push("---");
+    lines.push("");
+    if (agent.instructions) lines.push(agent.instructions);
 
     const dir = path.dirname(agent.filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(agent.filePath, stringify(data));
+    fs.writeFileSync(agent.filePath, lines.join("\n"));
   }
 
   static delete(agent: AgentConfig): void {

@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import { SkillConfig, Scope } from "../types";
-import { findMdFilesRecursive } from "./utils";
 
 export class SkillsSerializer {
   static read(filePath: string, scope: Scope): SkillConfig {
@@ -40,9 +39,26 @@ export class SkillsSerializer {
 
   static readAll(claudeDir: string, scope: Scope): SkillConfig[] {
     const skillsDir = path.join(claudeDir, "skills");
-    return findMdFilesRecursive(skillsDir).map((f) =>
-      SkillsSerializer.read(f, scope),
-    );
+    if (!fs.existsSync(skillsDir)) return [];
+
+    const results: SkillConfig[] = [];
+
+    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      const fullPath = path.join(skillsDir, entry.name);
+
+      if (entry.isDirectory()) {
+        // Directory-based skill: look for SKILL.md entry point
+        const skillMd = path.join(fullPath, "SKILL.md");
+        if (fs.existsSync(skillMd)) {
+          results.push(SkillsSerializer.read(skillMd, scope));
+        }
+      } else if (entry.name.endsWith(".md")) {
+        // Standalone .md file skill
+        results.push(SkillsSerializer.read(fullPath, scope));
+      }
+    }
+
+    return results;
   }
 
   static write(skill: SkillConfig): void {

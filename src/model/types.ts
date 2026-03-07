@@ -17,6 +17,8 @@ export interface BaseObject {
 export interface AgentConfig extends BaseObject {
   type: "agent";
   model?: string;
+  description?: string;
+  color?: string;
   instructions?: string;
   permissions?: string[];
   skills?: string[]; // IDs of linked skills

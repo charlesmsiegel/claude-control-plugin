@@ -64,8 +64,8 @@ describe("Extension Integration", () => {
       }),
     );
     fs.writeFileSync(
-      path.join(globalDir, "agents", "dev.yml"),
-      "name: dev\nmodel: claude-opus-4-6\n",
+      path.join(globalDir, "agents", "dev.md"),
+      "---\nname: dev\nmodel: claude-opus-4-6\n---\n\n# Dev Agent",
     );
     fs.writeFileSync(
       path.join(projectDir, ".claude", "skills", "deploy.md"),
@@ -156,10 +156,10 @@ describe("Extension Integration", () => {
   it("connections survive store clear and reload", () => {
     const scope: Scope = { type: "global", label: "Global", path: globalDir };
 
-    // Write an agent with skills reference
+    // Write an agent with markdown frontmatter
     fs.writeFileSync(
-      path.join(globalDir, "agents", "dev.yml"),
-      "name: dev\nskills:\n  - global:Global:skill:tdd\n",
+      path.join(globalDir, "agents", "dev.md"),
+      "---\nname: dev\nmodel: sonnet\n---\n\n# Dev Agent\n\nUse TDD.",
     );
     fs.writeFileSync(
       path.join(globalDir, "skills", "tdd.md"),
@@ -170,9 +170,10 @@ describe("Extension Integration", () => {
     AgentsSerializer.readAll(globalDir, scope).forEach((a) => store.set(a));
     SkillsSerializer.readAll(globalDir, scope).forEach((s) => store.set(s));
 
-    // Verify agent loaded with skills reference
+    // Verify agent loaded
     const agent = store.get("global:Global:agent:dev") as any;
     expect(agent).toBeDefined();
-    expect(agent.skills).toContain("global:Global:skill:tdd");
+    expect(agent.model).toBe("sonnet");
+    expect(agent.instructions).toContain("Use TDD.");
   });
 });

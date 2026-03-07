@@ -19,48 +19,41 @@ describe("AgentsSerializer", () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it("reads a YAML agent file with all fields", () => {
-    const agentPath = path.join(tmpDir, "agents", "dev-agent.yml");
+  it("reads an agent markdown file with frontmatter", () => {
+    const agentPath = path.join(tmpDir, "agents", "lore-writer.md");
     fs.writeFileSync(
       agentPath,
       [
-        "name: dev-agent",
-        "model: claude-opus-4-6",
-        "instructions: You are a development assistant",
-        "permissions:",
-        "  - Read",
-        "  - Write",
-        "  - Bash",
-        "skills:",
-        "  - global:Global:skill:tdd",
-        "hooks:",
-        "  - global:Global:hook:PreToolUse:0",
-        "mcpServers:",
-        "  - global:Global:mcpServer:github",
-        "claudeMdFiles:",
-        "  - project:myproject:claudeMd:root",
+        "---",
+        "name: lore-writer",
+        "description: Narrative and world-building content creation",
+        "model: sonnet",
+        "color: green",
+        "---",
+        "",
+        "# Lore Writer Agent",
+        "",
+        "You are the Lore Writer Agent.",
       ].join("\n")
     );
 
     const result = AgentsSerializer.read(agentPath, scope);
 
     expect(result.type).toBe("agent");
-    expect(result.id).toBe("global:Global:agent:dev-agent");
-    expect(result.name).toBe("dev-agent");
-    expect(result.model).toBe("claude-opus-4-6");
-    expect(result.instructions).toBe("You are a development assistant");
-    expect(result.permissions).toEqual(["Read", "Write", "Bash"]);
-    expect(result.skills).toEqual(["global:Global:skill:tdd"]);
-    expect(result.hooks).toEqual(["global:Global:hook:PreToolUse:0"]);
-    expect(result.mcpServers).toEqual(["global:Global:mcpServer:github"]);
-    expect(result.claudeMdFiles).toEqual(["project:myproject:claudeMd:root"]);
+    expect(result.id).toBe("global:Global:agent:lore-writer");
+    expect(result.name).toBe("lore-writer");
+    expect(result.model).toBe("sonnet");
+    expect(result.description).toBe("Narrative and world-building content creation");
+    expect(result.color).toBe("green");
+    expect(result.instructions).toContain("# Lore Writer Agent");
+    expect(result.instructions).toContain("You are the Lore Writer Agent.");
     expect(result.scope).toBe(scope);
     expect(result.filePath).toBe(agentPath);
   });
 
   it("reads a minimal agent file (name only)", () => {
-    const agentPath = path.join(tmpDir, "agents", "minimal.yml");
-    fs.writeFileSync(agentPath, "name: minimal\n");
+    const agentPath = path.join(tmpDir, "agents", "minimal.md");
+    fs.writeFileSync(agentPath, "---\nname: minimal\n---\n");
 
     const result = AgentsSerializer.read(agentPath, scope);
 
@@ -68,60 +61,48 @@ describe("AgentsSerializer", () => {
     expect(result.id).toBe("global:Global:agent:minimal");
     expect(result.name).toBe("minimal");
     expect(result.model).toBeUndefined();
+    expect(result.description).toBeUndefined();
+    expect(result.color).toBeUndefined();
     expect(result.instructions).toBeUndefined();
-    expect(result.permissions).toBeUndefined();
-    expect(result.skills).toBeUndefined();
-    expect(result.hooks).toBeUndefined();
-    expect(result.mcpServers).toBeUndefined();
-    expect(result.claudeMdFiles).toBeUndefined();
   });
 
-  it("writes an agent back to YAML", () => {
-    const agentPath = path.join(tmpDir, "agents", "written.yml");
+  it("writes an agent to markdown with frontmatter", () => {
+    const agentPath = path.join(tmpDir, "agents", "written.md");
     const agent: AgentConfig = {
       id: "global:Global:agent:written",
       name: "written",
       type: "agent",
       scope,
       filePath: agentPath,
-      model: "claude-opus-4-6",
-      instructions: "Be helpful",
-      permissions: ["Read", "Write"],
-      skills: ["global:Global:skill:tdd"],
-      hooks: ["global:Global:hook:PreToolUse:0"],
-      mcpServers: ["global:Global:mcpServer:github"],
-      claudeMdFiles: ["project:myproject:claudeMd:root"],
+      model: "sonnet",
+      description: "A test agent",
+      color: "blue",
+      instructions: "# Written Agent\n\nBe helpful.",
     };
 
     AgentsSerializer.write(agent);
 
     const written = fs.readFileSync(agentPath, "utf-8");
     expect(written).toContain("name: written");
-    expect(written).toContain("model: claude-opus-4-6");
-    expect(written).toContain("instructions: Be helpful");
-    expect(written).toContain("- Read");
-    expect(written).toContain("- Write");
-    expect(written).toContain("- global:Global:skill:tdd");
-    expect(written).toContain("- global:Global:hook:PreToolUse:0");
-    expect(written).toContain("- global:Global:mcpServer:github");
-    expect(written).toContain("- project:myproject:claudeMd:root");
+    expect(written).toContain("model: sonnet");
+    expect(written).toContain("description: A test agent");
+    expect(written).toContain("color: blue");
+    expect(written).toContain("# Written Agent");
+    expect(written).toContain("Be helpful.");
   });
 
   it("round-trips preserving all fields", () => {
-    const agentPath = path.join(tmpDir, "agents", "roundtrip.yml");
+    const agentPath = path.join(tmpDir, "agents", "roundtrip.md");
     const original: AgentConfig = {
       id: "global:Global:agent:roundtrip",
       name: "roundtrip",
       type: "agent",
       scope,
       filePath: agentPath,
-      model: "claude-opus-4-6",
-      instructions: "You are a roundtrip test agent",
-      permissions: ["Read", "Write", "Bash"],
-      skills: ["global:Global:skill:tdd", "global:Global:skill:refactor"],
-      hooks: ["global:Global:hook:PreToolUse:0"],
-      mcpServers: ["global:Global:mcpServer:github"],
-      claudeMdFiles: ["project:myproject:claudeMd:root"],
+      model: "opus",
+      description: "Round-trip test",
+      color: "red",
+      instructions: "# Roundtrip Agent\n\nTest round-trip.",
     };
 
     AgentsSerializer.write(original);
@@ -131,24 +112,28 @@ describe("AgentsSerializer", () => {
     expect(restored.name).toBe(original.name);
     expect(restored.type).toBe(original.type);
     expect(restored.model).toBe(original.model);
+    expect(restored.description).toBe(original.description);
+    expect(restored.color).toBe(original.color);
     expect(restored.instructions).toBe(original.instructions);
-    expect(restored.permissions).toEqual(original.permissions);
-    expect(restored.skills).toEqual(original.skills);
-    expect(restored.hooks).toEqual(original.hooks);
-    expect(restored.mcpServers).toEqual(original.mcpServers);
-    expect(restored.claudeMdFiles).toEqual(original.claudeMdFiles);
   });
 
-  it("reads all agents from a directory", () => {
+  it("reads all agents from directory including subdirectories", () => {
+    fs.mkdirSync(path.join(tmpDir, "agents", "book-creation"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "agents", "knowledge-base"), { recursive: true });
+
     fs.writeFileSync(
-      path.join(tmpDir, "agents", "a.yml"),
-      "name: a\nmodel: claude-opus-4-6\n"
+      path.join(tmpDir, "agents", "book-creation", "lore-writer.md"),
+      "---\nname: lore-writer\nmodel: sonnet\n---\n\n# Lore Writer"
     );
     fs.writeFileSync(
-      path.join(tmpDir, "agents", "b.yml"),
-      "name: b\ninstructions: Do B\n"
+      path.join(tmpDir, "agents", "book-creation", "copy-editor.md"),
+      "---\nname: copy-editor\nmodel: sonnet\n---\n\n# Copy Editor"
     );
-    // Non-yml file should be ignored
+    fs.writeFileSync(
+      path.join(tmpDir, "agents", "knowledge-base", "kb-retriever.md"),
+      "---\nname: kb-retriever\nmodel: sonnet\n---\n\n# KB Retriever"
+    );
+    // Non-md file should be ignored
     fs.writeFileSync(
       path.join(tmpDir, "agents", "ignore.txt"),
       "not an agent"
@@ -156,9 +141,9 @@ describe("AgentsSerializer", () => {
 
     const results = AgentsSerializer.readAll(tmpDir, scope);
 
-    expect(results).toHaveLength(2);
+    expect(results).toHaveLength(3);
     const names = results.map((r) => r.name).sort();
-    expect(names).toEqual(["a", "b"]);
+    expect(names).toEqual(["copy-editor", "kb-retriever", "lore-writer"]);
   });
 
   it("handles missing agents directory gracefully", () => {
@@ -171,13 +156,13 @@ describe("AgentsSerializer", () => {
   });
 
   it("handles missing file gracefully", () => {
-    const nonexistent = path.join(tmpDir, "agents", "nonexistent.yml");
+    const nonexistent = path.join(tmpDir, "agents", "nonexistent.md");
     expect(() => AgentsSerializer.read(nonexistent, scope)).toThrow();
   });
 
   it("deletes an agent file", () => {
-    const agentPath = path.join(tmpDir, "agents", "to-delete.yml");
-    fs.writeFileSync(agentPath, "name: to-delete\n");
+    const agentPath = path.join(tmpDir, "agents", "to-delete.md");
+    fs.writeFileSync(agentPath, "---\nname: to-delete\n---\n");
     expect(fs.existsSync(agentPath)).toBe(true);
 
     AgentsSerializer.delete({
@@ -192,7 +177,7 @@ describe("AgentsSerializer", () => {
   });
 
   it("delete handles already-removed file gracefully", () => {
-    const agentPath = path.join(tmpDir, "agents", "already-gone.yml");
+    const agentPath = path.join(tmpDir, "agents", "already-gone.md");
 
     expect(() =>
       AgentsSerializer.delete({
@@ -206,7 +191,7 @@ describe("AgentsSerializer", () => {
   });
 
   it("creates parent directories when writing", () => {
-    const deepPath = path.join(tmpDir, "new-dir", "agents", "deep.yml");
+    const deepPath = path.join(tmpDir, "new-dir", "agents", "deep.md");
     const agent: AgentConfig = {
       id: "global:Global:agent:deep",
       name: "deep",
@@ -223,8 +208,8 @@ describe("AgentsSerializer", () => {
   });
 
   it("uses filename as name when name field is missing", () => {
-    const agentPath = path.join(tmpDir, "agents", "from-filename.yml");
-    fs.writeFileSync(agentPath, "model: claude-opus-4-6\n");
+    const agentPath = path.join(tmpDir, "agents", "from-filename.md");
+    fs.writeFileSync(agentPath, "---\nmodel: sonnet\n---\n\nSome instructions.");
 
     const result = AgentsSerializer.read(agentPath, scope);
 
@@ -238,11 +223,22 @@ describe("AgentsSerializer", () => {
       label: "myproject",
       path: tmpDir,
     };
-    const agentPath = path.join(tmpDir, "agents", "proj-agent.yml");
-    fs.writeFileSync(agentPath, "name: proj-agent\n");
+    const agentPath = path.join(tmpDir, "agents", "proj-agent.md");
+    fs.writeFileSync(agentPath, "---\nname: proj-agent\n---\n");
 
     const result = AgentsSerializer.read(agentPath, projectScope);
 
     expect(result.id).toBe("project:myproject:agent:proj-agent");
+  });
+
+  it("reads agent without frontmatter (plain markdown)", () => {
+    const agentPath = path.join(tmpDir, "agents", "plain.md");
+    fs.writeFileSync(agentPath, "# Plain Agent\n\nJust instructions, no frontmatter.");
+
+    const result = AgentsSerializer.read(agentPath, scope);
+
+    expect(result.name).toBe("plain");
+    expect(result.instructions).toBe("# Plain Agent\n\nJust instructions, no frontmatter.");
+    expect(result.model).toBeUndefined();
   });
 });
