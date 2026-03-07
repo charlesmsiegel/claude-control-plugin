@@ -65,6 +65,39 @@ describe("SkillsSerializer", () => {
     expect(written).toContain("# New");
   });
 
+  it("reads skills recursively from subdirectories", () => {
+    fs.mkdirSync(path.join(tmpDir, "skills", "sub1"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "skills", "sub2", "deep"), { recursive: true });
+
+    fs.writeFileSync(path.join(tmpDir, "skills", "top.md"), "---\nname: top\n---\nTop");
+    fs.writeFileSync(path.join(tmpDir, "skills", "sub1", "mid.md"), "---\nname: mid\n---\nMid");
+    fs.writeFileSync(path.join(tmpDir, "skills", "sub2", "deep", "bottom.md"), "---\nname: bottom\n---\nBottom");
+
+    const results = SkillsSerializer.readAll(tmpDir, scope);
+    expect(results).toHaveLength(3);
+    const names = results.map((r) => r.name).sort();
+    expect(names).toEqual(["bottom", "mid", "top"]);
+  });
+
+  it("handles SKILL.md files in subdirectories (plugin style)", () => {
+    fs.mkdirSync(path.join(tmpDir, "skills", "pdf"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, "skills", "frontend-design"), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, "skills", "pdf", "SKILL.md"),
+      "---\nname: pdf\n---\nPDF skill",
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "skills", "frontend-design", "SKILL.md"),
+      "---\nname: frontend-design\n---\nFrontend skill",
+    );
+
+    const results = SkillsSerializer.readAll(tmpDir, scope);
+    expect(results).toHaveLength(2);
+    const names = results.map((r) => r.name).sort();
+    expect(names).toEqual(["frontend-design", "pdf"]);
+  });
+
   it("handles skill without frontmatter", () => {
     const skillPath = path.join(tmpDir, "skills", "plain.md");
     fs.writeFileSync(skillPath, "Just content, no frontmatter.");

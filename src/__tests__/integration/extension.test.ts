@@ -105,11 +105,11 @@ describe("Extension Integration", () => {
       store.set(a),
     );
 
-    // Load project scope
+    // Load project scope — project uses settings.local.json
     const projectScope = scopes.find((s) => s.type === "project")!;
     store.set(
       SettingsSerializer.read(
-        path.join(projectScope.path, "settings.json"),
+        path.join(projectScope.path, "settings.local.json"),
         projectScope,
       ),
     );

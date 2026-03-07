@@ -18,6 +18,7 @@ import { McpServersSerializer } from "./model/serializers/mcp-servers";
 import { AgentsSerializer } from "./model/serializers/agents";
 import { ClaudeMdSerializer } from "./model/serializers/claude-md";
 import { MemorySerializer } from "./model/serializers/memory";
+import { PluginsSerializer } from "./model/serializers/plugins";
 
 export function activate(context: vscode.ExtensionContext) {
   const store = new Store();
@@ -35,6 +36,29 @@ export function activate(context: vscode.ExtensionContext) {
     for (const scope of scopes) {
       loadScope(scope);
     }
+
+    // After loading global settings, scan enabled plugins
+    const globalScope = scopes.find((s) => s.type === "global");
+    if (globalScope) {
+      const globalSettings = store.get(
+        `global:${globalScope.label}:settings:main`,
+      );
+      const enabledPlugins =
+        globalSettings?.type === "settings"
+          ? globalSettings.enabledPlugins ?? []
+          : [];
+
+      if (enabledPlugins.length > 0) {
+        PluginsSerializer.readAllSkills(globalClaudeDir, enabledPlugins).forEach(
+          (s) => store.set(s),
+        );
+        PluginsSerializer.readAllCommands(
+          globalClaudeDir,
+          enabledPlugins,
+        ).forEach((c) => store.set(c));
+      }
+    }
+
     // Load memory for each workspace folder
     for (const folder of workspaceFolders) {
       const memoryScope: Scope = {
@@ -48,17 +72,22 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   function loadScope(scope: Scope) {
-    // Settings
-    const settingsPath = path.join(scope.path, "settings.json");
-    store.set(SettingsSerializer.read(settingsPath, scope));
+    // Settings — global uses settings.json, project uses settings.local.json
+    const settingsFileName =
+      scope.type === "project" ? "settings.local.json" : "settings.json";
+    const settingsPath = path.join(scope.path, settingsFileName);
+    const settings = SettingsSerializer.read(settingsPath, scope);
+    store.set(settings);
 
-    // Hooks (from settings.json)
-    HooksSerializer.readAll(settingsPath, scope).forEach((h) => store.set(h));
+    // Hooks (from the resolved settings file)
+    HooksSerializer.readAll(settings.filePath, scope).forEach((h) =>
+      store.set(h),
+    );
 
-    // Skills
+    // Skills (recursive)
     SkillsSerializer.readAll(scope.path, scope).forEach((s) => store.set(s));
 
-    // Commands
+    // Commands (recursive)
     CommandsSerializer.readAll(scope.path, scope).forEach((c) => store.set(c));
 
     // MCP Servers

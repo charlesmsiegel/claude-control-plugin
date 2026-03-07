@@ -69,6 +69,7 @@ export interface SettingsConfig extends BaseObject {
   permissions?: Record<string, string[]>;
   model?: string;
   customInstructions?: string;
+  enabledPlugins?: string[]; // plugin identifiers from global settings
   hooks?: string[]; // IDs of linked hooks
   raw: Record<string, unknown>; // full raw JSON
 }

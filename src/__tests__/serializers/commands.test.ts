@@ -75,6 +75,24 @@ describe("CommandsSerializer", () => {
     expect(written).toContain("Run tests matching {{ pattern }}.");
   });
 
+  it("reads commands recursively from subdirectories", () => {
+    fs.mkdirSync(path.join(tmpDir, "commands", "sub"), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tmpDir, "commands", "top.md"),
+      "---\nname: top\n---\nTop template",
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "commands", "sub", "nested.md"),
+      "---\nname: nested\n---\nNested template",
+    );
+
+    const results = CommandsSerializer.readAll(tmpDir, scope);
+    expect(results).toHaveLength(2);
+    const names = results.map((r) => r.name).sort();
+    expect(names).toEqual(["nested", "top"]);
+  });
+
   it("handles command without frontmatter", () => {
     const cmdPath = path.join(tmpDir, "commands", "simple.md");
     fs.writeFileSync(cmdPath, "Just a template, no frontmatter.");

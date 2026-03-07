@@ -53,4 +53,61 @@ describe("SettingsSerializer", () => {
     expect(result.type).toBe("settings");
     expect(result.raw).toEqual({});
   });
+
+  describe("settings.local.json support", () => {
+    it("resolves settings.local.json when settings.json is missing", () => {
+      const localPath = path.join(tmpDir, "settings.local.json");
+      fs.writeFileSync(localPath, JSON.stringify({ model: "claude-sonnet-4-6" }));
+
+      const projectScope: Scope = { type: "project", label: "my-project", path: tmpDir };
+      const result = SettingsSerializer.read(
+        path.join(tmpDir, "settings.json"),
+        projectScope,
+      );
+
+      expect(result.filePath).toBe(localPath);
+      expect(result.model).toBe("claude-sonnet-4-6");
+    });
+
+    it("reads settings.local.json directly when passed as path", () => {
+      const localPath = path.join(tmpDir, "settings.local.json");
+      fs.writeFileSync(localPath, JSON.stringify({ model: "claude-opus-4-6" }));
+
+      const projectScope: Scope = { type: "project", label: "my-project", path: tmpDir };
+      const result = SettingsSerializer.read(localPath, projectScope);
+
+      expect(result.filePath).toBe(localPath);
+      expect(result.model).toBe("claude-opus-4-6");
+    });
+
+    it("prefers settings.json when both exist", () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "settings.json"),
+        JSON.stringify({ model: "from-settings" }),
+      );
+      fs.writeFileSync(
+        path.join(tmpDir, "settings.local.json"),
+        JSON.stringify({ model: "from-local" }),
+      );
+
+      // When settings.json is requested and exists, it should use settings.json
+      const result = SettingsSerializer.read(
+        path.join(tmpDir, "settings.json"),
+        scope,
+      );
+      expect(result.model).toBe("from-settings");
+    });
+
+    it("resolveSettingsPath falls back to settings.json from settings.local.json", () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "settings.json"),
+        JSON.stringify({ model: "global" }),
+      );
+
+      const resolved = SettingsSerializer.resolveSettingsPath(
+        path.join(tmpDir, "settings.local.json"),
+      );
+      expect(resolved).toBe(path.join(tmpDir, "settings.json"));
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { CommandConfig, Scope } from "../types";
+import { findMdFilesRecursive } from "./utils";
 
 export class CommandsSerializer {
   static read(filePath: string, scope: Scope): CommandConfig {
@@ -38,12 +39,9 @@ export class CommandsSerializer {
 
   static readAll(claudeDir: string, scope: Scope): CommandConfig[] {
     const commandsDir = path.join(claudeDir, "commands");
-    if (!fs.existsSync(commandsDir)) return [];
-
-    return fs
-      .readdirSync(commandsDir)
-      .filter((f) => f.endsWith(".md"))
-      .map((f) => CommandsSerializer.read(path.join(commandsDir, f), scope));
+    return findMdFilesRecursive(commandsDir).map((f) =>
+      CommandsSerializer.read(f, scope),
+    );
   }
 
   static write(command: CommandConfig): void {
